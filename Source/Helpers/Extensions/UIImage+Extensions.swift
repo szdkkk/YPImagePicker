@@ -11,13 +11,18 @@ import UIKit
 internal extension UIImage {
     
     func resized(to size: CGSize) -> UIImage? {
+        guard self.size.equalTo(size) == false else {
+            return self
+        }
+        
         UIGraphicsBeginImageContextWithOptions(size, false, scale)
         defer { UIGraphicsEndImageContext() }
         draw(in: CGRect(origin: .zero, size: size))
+        
         return UIGraphicsGetImageFromCurrentImageContext()
     }
     
-    /// Kudos to Trevor Harmon and his UIImage+Resize category from
+    // Kudos to Trevor Harmon and his UIImage+Resize category from
     // which this code is heavily inspired.
     func resetOrientation() -> UIImage {
         // Image has no orientation, so keep the same
@@ -87,8 +92,17 @@ internal extension UIImage {
             if let resizedImage = self.resized(to: size) {
                 return resizedImage
             }
+        } else if case let YPImageSize.scaleToMaxSize(size: size) = YPConfig.targetImageSize {
+            if let resizedImage = self.resized(to: aspectFit(size: self.size, in: size)) {
+                return resizedImage
+            }
         }
         return self
+    }
+    
+    fileprivate func aspectFit(size: CGSize, in targetSize: CGSize) -> CGSize {
+        let scale = min(1.0, min(targetSize.width / size.width, targetSize.height / size.height))
+        return CGSize(width: size.width * scale, height: size.height * scale)
     }
     
     fileprivate func cappedSize(for size: CGSize, cappedAt: CGFloat) -> CGSize {

@@ -12,4 +12,5 @@ import AVFoundation
 public enum YPImageSize {
     case original
     case cappedTo(size: CGFloat)
+    case scaleToMaxSize(size: CGSize)
 }

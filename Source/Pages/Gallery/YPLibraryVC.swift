@@ -488,12 +488,11 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
                 var resultMediaItems: [YPMediaItem] = []
                 let asyncGroup = DispatchGroup()
                 
-                var assetDictionary = Dictionary<PHAsset?, Int>()
+                var assetDictionary = [PHAsset?: Int]()
                 for (index, assetPair) in selectedAssets.enumerated() {
                     assetDictionary[assetPair.asset] = index
                 }
-                
-                
+                     
                 for asset in selectedAssets {
                     asyncGroup.enter()
                     
