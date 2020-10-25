@@ -418,16 +418,20 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
     
     private func fetchImageAndCrop(for asset: PHAsset,
                                    withCropRect: CGRect? = nil,
-                                   callback: @escaping (_ photo: UIImage, _ exif: [String: Any]) -> Void) {
+                                   callback: @escaping (_ photo: UIImage, _ exif: [String: Any],
+                                                        _ cropRect: CGRect) -> Void) {
         delegate?.libraryViewDidTapNext()
         let cropRect = withCropRect ?? DispatchQueue.main.sync { v.currentCropRect() }
         let ts = targetSize(for: asset, cropRect: cropRect)
-        mediaManager.imageManager?.fetchImage(for: asset, cropRect: cropRect, targetSize: ts, callback: callback)
+        mediaManager.imageManager?.fetchImage(for: asset,
+                                              cropRect: cropRect, targetSize: ts, callback: { (image, exif) in
+            callback(image, exif, cropRect)
+        })
     }
     
     private func fetchVideoAndApplySettings(for asset: PHAsset,
                                             withCropRect rect: CGRect? = nil,
-                                            callback: @escaping (_ videoURL: URL?) -> Void) {
+                                            callback: @escaping (_ videoURL: URL?, _ cropRect: CGRect) -> Void) {
         let normalizedCropRect = rect ?? DispatchQueue.main.sync { v.currentCropRect() }
         let ts = targetSize(for: asset, cropRect: normalizedCropRect)
         let xCrop: CGFloat = normalizedCropRect.origin.x * CGFloat(asset.pixelWidth)
@@ -444,11 +448,14 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
         if YPConfig.video.automaticTrimToTrimmerMaxDuration {
             fetchVideoAndCropWithDuration(for: asset,
                                           withCropRect: resultCropRect,
-                                          duration: YPConfig.video.trimmerMaxDuration,
-                                          callback: callback)
+                                          duration: YPConfig.video.trimmerMaxDuration) { (videoURL) in
+                callback(videoURL, normalizedCropRect)
+            }
         } else {
             delegate?.libraryViewDidTapNext()
-            mediaManager.fetchVideoUrlAndCrop(for: asset, cropRect: resultCropRect, callback: callback)
+            mediaManager.fetchVideoUrlAndCrop(for: asset, cropRect: resultCropRect) { (videoURL) in
+                callback(videoURL, normalizedCropRect)
+            }
         }
     }
     
@@ -499,19 +506,20 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
                     
                     switch asset.asset.mediaType {
                     case .image:
-                        self.fetchImageAndCrop(for: asset.asset, withCropRect: asset.cropRect) { image, exifMeta in
+                        self.fetchImageAndCrop(for: asset.asset,
+                                               withCropRect: asset.cropRect) { image, exifMeta, cropRect in
                             let photo = YPMediaPhoto(image: image.resizedImageIfNeeded(),
-													 exifMeta: exifMeta, asset: asset.asset)
+													 exifMeta: exifMeta, asset: asset.asset, cropRect: cropRect)
                             resultMediaItems.append(YPMediaItem.photo(p: photo))
                             asyncGroup.leave()
                         }
                         
                     case .video:
                         self.fetchVideoAndApplySettings(for: asset.asset,
-                                                             withCropRect: asset.cropRect) { videoURL in
+                                                             withCropRect: asset.cropRect) { videoURL, cropRect in
                             if let videoURL = videoURL {
                                 let videoItem = YPMediaVideo(thumbnail: thumbnailFromVideoPath(videoURL),
-                                                             videoURL: videoURL, asset: asset.asset)
+                                                             videoURL: videoURL, asset: asset.asset, cropRect: cropRect)
                                 resultMediaItems.append(YPMediaItem.video(v: videoItem))
                             } else {
                                 print("YPLibraryVC -> selectedMedia -> Problems with fetching videoURL.")
@@ -561,12 +569,12 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
                 case .audio, .unknown:
                     return
                 case .video:
-                    self.fetchVideoAndApplySettings(for: asset, callback: { videoURL in
+                    self.fetchVideoAndApplySettings(for: asset, callback: { videoURL, cropRect in
                         DispatchQueue.main.async {
                             if let videoURL = videoURL {
                                 self.delegate?.libraryViewFinishedLoading()
                                 let video = YPMediaVideo(thumbnail: thumbnailFromVideoPath(videoURL),
-                                                         videoURL: videoURL, asset: asset)
+                                                         videoURL: videoURL, asset: asset, cropRect: cropRect)
                                 videoCallback(video)
                             } else {
                                 print("YPLibraryVC -> selectedMedia -> Problems with fetching videoURL.")
@@ -574,12 +582,12 @@ public class YPLibraryVC: UIViewController, YPPermissionCheckable {
                         }
                     })
                 case .image:
-                    self.fetchImageAndCrop(for: asset) { image, exifMeta in
+                    self.fetchImageAndCrop(for: asset) { image, exifMeta, cropRect in
                         DispatchQueue.main.async {
                             self.delegate?.libraryViewFinishedLoading()
                             let photo = YPMediaPhoto(image: image.resizedImageIfNeeded(),
                                                      exifMeta: exifMeta,
-                                                     asset: asset)
+                                                     asset: asset, cropRect: cropRect)
                             photoCallback(photo)
                         }
                     }

@@ -139,10 +139,11 @@ class LibraryMediaManager {
                 
                 let fileURL = URL(fileURLWithPath: NSTemporaryDirectory())
                     .appendingUniquePathComponent(pathExtension: YPConfig.video.fileType.fileExtension)
+                let userConfigPreset = videoSize.width >= 0 && videoSize.height >= 0
                 let exportSession = assetComposition
                     .export(to: fileURL,
                             videoComposition: videoComposition,
-                            removeOldFile: true) { [weak self] session in
+                            removeOldFile: true, userConfigPreset: userConfigPreset) { [weak self] session in
                                 DispatchQueue.main.async {
                                     switch session.status {
                                     case .completed:
